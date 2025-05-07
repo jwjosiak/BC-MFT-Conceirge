@@ -1,71 +1,88 @@
 # app.py
 
 import streamlit as st
-from parser import parse_fuel_tax_input
 from bcmftrule import check_bc_fuel_tax_applicability
 
 st.set_page_config(page_title="BC Motor Fuel Tax Tool", layout="centered")
-
 st.title("🚛 BC Motor Fuel Tax Determination Tool")
 
-with st.expander("ℹ️ Click here for input guidance"):
+with st.expander("ℹ️ Click here for help filling out the form"):
     st.markdown("""
-    To ensure the tool works properly, please use **clear and specific phrasing**.
+    This tool assumes you will **not** charge BC Motor Fuel Tax.
 
-    **✅ Fuel Type**
-    - “We are selling **propane**…”  
-    - “I sold **diesel**…”
+    It tells you what documentation or conditions are required to justify that decision.
 
-    **✅ Location**
-    - “The sale happened **in BC**”
-    - “The customer is **in BC**” or “**outside BC**”
-
-    **✅ Use Case**
-    - “Used **in a machine**” → engine use  
-    - “Used for **residential heating**”  
-    - “They will **resell it**”  
-    - “They will **export it to Alberta**”  
-
-    **✅ Certificates**
-    - “They provided a **common carrier certificate**”  
-    - “We have a **resale certificate**”  
-    - “It’s for **farm use**”  
-
-    ❌ Avoid vague phrases like “used in operations.” Instead, say:
-    - “Used **in a vehicle**”
-    - “Used **for heating**”
+    ### ✅ How to use:
+    - Fill in all known fields below
+    - Choose "Not sure" for unknowns (the tool will flag what you're missing)
     """)
 
-# Text input
-user_input = st.text_area("📝 Describe the transaction:", height=200, placeholder="""
-Example: 
-We sold propane in BC to a customer who is exporting it to Alberta using a common carrier. Title transfers outside BC.
-""")
+st.subheader("📋 Describe the Transaction")
 
-if user_input.strip():
-    # Parse user input
-    parsed = parse_fuel_tax_input(user_input)
+# --- Form inputs ---
+fuel_type = st.selectbox("Fuel Type", ["Not sure", "Propane", "Gasoline", "Diesel", "Aviation Fuel", "Jet Fuel"])
 
-    st.subheader("📋 Parsed Transaction Details")
-    st.json(parsed)
+origin = st.selectbox("Fuel Origin", ["Not sure", "Imported", "Manufactured in BC"])
 
-    # Show parser warning if applicable
-    if "parser_warning" in parsed:
-        st.warning(parsed["parser_warning"])
+is_collector = st.radio("Are you a registered Collector?", ["Not sure", "Yes", "No"])
+is_collector = None if is_collector == "Not sure" else is_collector == "Yes"
 
-    # Remove parser_warning before rule engine call
-    parsed_cleaned = {k: v for k, v in parsed.items() if k != "parser_warning"}
+is_first_sale = st.radio("Is this the first sale in BC after import/production?", ["Not sure", "Yes", "No"])
+is_first_sale = None if is_first_sale == "Not sure" else is_first_sale == "Yes"
 
-    # Determine MFT applicability
-    is_taxable, explanation = check_bc_fuel_tax_applicability(**parsed_cleaned)
+purchaser_type = st.selectbox("Purchaser Type", [
+    "Not sure", "End User", "Registered Reseller", "Collector", "Retail Dealer", "Export"
+])
 
-    st.subheader("⚖️ MFT Determination Result")
-    if is_taxable:
-        st.error("MFT Applicable")
+use_case = st.selectbox("Use Case", [
+    "Not sure", "Engine Use", "Resale", "Heating (Residential)", "Farm Use", "Export", "Non-Engine Use"
+])
+
+certificate = st.selectbox("Certificate Provided", [
+    "None / Not sure", "Common Carrier", "Resale", "Farm Use", "Residential Heating", "Diplomat"
+])
+
+bc_zone = st.selectbox("BC Zone (if applicable)", ["Not sure", "Zone I", "Zone II", "Zone III"])
+
+destination = st.selectbox("Final Destination of Fuel", ["Not sure", "BC", "Outside BC"])
+
+title_transfer_location = st.selectbox("Where Did Title Transfer?", ["Not sure", "BC", "Outside BC"])
+
+# --- Check logic only if fuel_type is selected ---
+if fuel_type != "Not sure":
+    st.subheader("⚖️ MFT Exemption Guidance")
+
+    # Normalize values for function call
+    inputs = {
+        "fuel_type": fuel_type.lower() if fuel_type != "Not sure" else None,
+        "origin": origin.lower() if origin != "Not sure" else None,
+        "is_collector": is_collector,
+        "is_first_sale": is_first_sale,
+        "purchaser_type": purchaser_type.lower().replace(" ", "_") if purchaser_type != "Not sure" else None,
+        "use_case": {
+            "Engine Use": "engine_use",
+            "Resale": "resale",
+            "Heating (Residential)": "heating",
+            "Farm Use": "farm_use",
+            "Export": "export",
+            "Non-Engine Use": "non_engine_use"
+        }.get(use_case, None),
+        "certificate": certificate.lower().replace(" ", "_") if certificate != "None / Not sure" else None,
+        "bc_zone": bc_zone if bc_zone != "Not sure" else None,
+        "destination": destination.upper() if destination != "Not sure" else None,
+        "title_transfer_location": title_transfer_location.upper() if title_transfer_location != "Not sure" else None
+    }
+
+    is_supported, message = check_bc_fuel_tax_applicability(**inputs)
+
+    # Decision Output
+    if is_supported:
+        st.success("✅ You may proceed without charging MFT.")
+        st.markdown(f"**Reason:** {message}")
     else:
-        st.success("MFT Exempt")
+        st.error("⚠️ Charging no MFT is not currently supported.")
+        st.markdown(f"**Action Required:** {message}")
 
-    st.markdown(f"**🧾 Explanation:** {explanation}")
-    
-if "operations" in text and not result.get("use_case"):
-        result["parser_warning"] = "⚠️ The phrase 'operations' is too vague. Please specify if this is engine use, resale, heating, or export."
+    # Optional: Debug display of input for audit
+    with st.expander("🧪 Show structured input (for developers or audit purposes)"):
+        st.write(inputs)
