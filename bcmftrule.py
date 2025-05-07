@@ -1,112 +1,53 @@
-# bcmftrule.py
-
 def check_bc_fuel_tax_applicability(
     fuel_type: str,
-    origin: str,
+    origin: str,  # 'manufactured' or 'imported'
     is_collector: bool,
     is_first_sale: bool,
-    purchaser_type: str,
-    use_case: str,
+    purchaser_type: str,  # 'collector', 'registered_reseller', 'end_user', 'export'
+    use_case: str,        # 'engine_use', 'non_engine_use', 'export', 'resale'
     certificate: str = None,
-    bc_zone: str = None,
-    destination: str = None,
-    title_transfer_location: str = None
-):
-    """
-    Assumes seller will not charge MFT. Returns:
-    (is_supported: bool, message: str with reasoning + references)
-    """
+    destination: str = "british_columbia"
+) -> tuple[bool, list[str]]:
+    references = []
 
-    # Normalize inputs
-    fuel_type = fuel_type.lower() if fuel_type else None
-    purchaser_type = purchaser_type.lower() if purchaser_type else None
-    use_case = use_case.lower() if use_case else None
-    certificate = certificate.lower() if certificate else None
-    bc_zone = bc_zone.title() if bc_zone else None
-    destination = destination.upper() if destination else None
-    title_transfer_location = title_transfer_location.upper() if title_transfer_location else None
+    # Check for missing required fields
+    if not destination:
+        return True, ["Missing required field: 'destination'. Cannot assess exemption. [MFT Act s.73]"]
 
-    required_fields = ["fuel_type", "use_case", "purchaser_type", "destination", "title_transfer_location"]
-    for field in required_fields:
-        if not locals()[field]:
-            return False, f"Missing required field: '{field}'. Cannot assess exemption. [MFT Act s. 73]"
+    # General rule: MFT applies on fuel used in internal combustion engines in BC
+    if use_case == "engine_use" and destination == "british_columbia":
+        references.append("Fuel is used in an internal combustion engine in BC. [MFT Act s.73, Bulletin MFT-CT 001]")
+        tax_applicable = True
 
-    # EXPORT
-    if use_case == "export" or destination != "BC":
-        if certificate == "common_carrier":
-            return True, (
-                "✅ Export exemption applies. Common Carrier Certificate on file. "
-                "[Ref: MFT Act s. 1, s. 74(1)(e); Bulletin MFT-CT 005]"
-            )
-        return False, (
-            "❌ To exempt exports, obtain a Common Carrier Certificate. "
-            "[Ref: MFT Act s. 1 'export', s. 74(1)(e); Bulletin MFT-CT 005]"
-        )
+        # Check for specific exemptions
+        if fuel_type == "propane" and certificate in ["farm_use", "resale", "diplomat", "common_carrier"]:
+            references.append(f"Exempt due to valid certificate for {certificate.replace('_', ' ')}. [MFT Reg s.85, Bulletin MFT-CT 005]")
+            tax_applicable = False
+        elif purchaser_type == "registered_reseller":
+            references.append("Exempt: Sale to Registered Reseller with resale intent. [MFT Reg s.79, Bulletin MFT-CT 002]")
+            tax_applicable = False
+        elif purchaser_type == "collector":
+            references.append("Exempt: Sale to another Collector. [MFT Act s.76]")
+            tax_applicable = False
 
-    # RESALE
-    if use_case == "resale":
-        if purchaser_type in ["collector", "registered_reseller"] and certificate == "resale":
-            return True, (
-                "✅ Resale exemption valid with resale certificate and registered purchaser. "
-                "[Ref: MFT Reg s. 39; Bulletin MFT-CT 003]"
-            )
-        return False, (
-            "❌ Resale exemption denied. Ensure purchaser is registered and resale certificate is on file. "
-            "[Ref: MFT Reg s. 39; Bulletin MFT-CT 003]"
-        )
+    # Export scenario — fuel leaving BC
+    elif destination != "british_columbia":
+        references.append(f"Fuel destined for export to {destination.title()}. [MFT Reg s.80, Bulletin MFT-CT 001]")
+        if certificate in ["export", "resale"]:
+            references.append("Exempt: Export or resale certificate provided. [MFT Reg s.81]")
+            tax_applicable = False
+        else:
+            references.append("Tax not applicable due to out-of-province delivery. [MFT Act s.73]")
+            tax_applicable = False
 
-    # HEATING (Propane)
-    if fuel_type == "propane" and use_case == "heating":
-        if certificate == "residential_heating" and bc_zone in ["Zone II", "Zone III"]:
-            return True, (
-                "✅ Residential heating exemption applies with zone and certificate. "
-                "[Ref: Bulletin MFT-CT 004; MFT Reg Zones]"
-            )
-        return False, (
-            "❌ Propane heating exemption denied. Must provide Residential Heating Certificate and be in Zone II or III. "
-            "[Ref: Bulletin MFT-CT 004]"
-        )
+    # Resale scenario
+    elif use_case == "resale" and purchaser_type in ["registered_reseller", "collector"]:
+        references.append("Exempt: Fuel resold to a qualified reseller or collector. [MFT Reg s.79]")
+        tax_applicable = False
 
-    # FARM USE
-    if use_case == "farm_use":
-        if certificate == "farm_use":
-            return True, (
-                "✅ Farm use exemption supported by Farm Fuel Certificate. "
-                "[Ref: MFT Reg s. 18; Bulletin MFT-CT 006]"
-            )
-        return False, (
-            "❌ Farm use exemption denied. Certificate required. "
-            "[Ref: MFT Reg s. 18; Bulletin MFT-CT 006]"
-        )
+    # Default: tax applies
+    else:
+        references.append("Default rule applied: MFT applies due to internal BC use and no qualifying exemption. [MFT Act s.73]")
+        tax_applicable = True
 
-    # DIPLOMATIC
-    if certificate == "diplomat":
-        return True, (
-            "✅ Diplomatic exemption allowed. "
-            "[Ref: CRA & BC Finance diplomatic tax relief policies]"
-        )
-
-    # ENGINE USE
-    if use_case == "engine_use":
-        if fuel_type == "propane" and certificate in ["farm_use", "residential_heating"] and bc_zone in ["Zone II", "Zone III"]:
-            return True, (
-                "✅ Propane exemption for engine use in special case with cert and zone. "
-                "[Ref: Bulletins MFT-CT 004 & 006]"
-            )
-        return False, (
-            "❌ Engine use is taxable unless a very specific propane exemption applies. "
-            "[Ref: MFT Act s. 73(1)]"
-        )
-
-    # NON-ENGINE USE
-    if use_case == "non_engine_use":
-        return False, (
-            "❌ MFT generally applies. Documented industrial use (e.g. feedstock, steam) required for case-by-case exemption. "
-            "[Ref: MFT Act s. 73; CRA indirect use guidance]"
-        )
-
-    # DEFAULT
-    return False, (
-        "❌ No exemption conditions met. MFT must be charged unless supported by specific documentation. "
-        "[Ref: MFT Act s. 73; Bulletins MFT-CT 003–006]"
-    )
+    return tax_applicable, references
