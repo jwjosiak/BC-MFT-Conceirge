@@ -1,67 +1,70 @@
 import streamlit as st
-from bcmftrule import check_bc_fuel_tax_applicability
 
-# Streamlit page setup
-st.set_page_config(
-    page_title="BC Motor Fuel Tax Tool",
-    page_icon="🚛",
-    layout="centered"
-)
+# Page config
+st.set_page_config(page_title="BC Motor Fuel Tax Tool", page_icon="🛢️")
 
-# Header
-st.title("🚛 BC Motor Fuel Tax Determination Tool")
-st.markdown("Determine if Motor Fuel Tax applies using the **BC Motor Fuel Tax Act**, **Regulations**, and relevant **Bulletins**.")
-st.markdown("---")
+# Logo and Title
+st.markdown("""
+<div style='text-align: left; display: flex; align-items: center; gap: 10px;'>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACsAAAAyCAYAAAC9nV3UAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABMElEQVRoge2XsU3DMBCFZ4qYi9rIltzCIszENnBE2YjWfEJDqUp0BdFymFPbCieiwjPbRZTbnkzRkU8mh4/3ON3eANvpKJfwWcVtHbFawU8ULaKjvBtRO+ls59jzebgFsGuULkL5PKzFkfC+xFfKn8CbBcmuUr/RaEvkyZIZQbiD8N8K2kYxcRFa28twtdVndKMYOYIqMtzKzBQFLKtFJ7X1SpFT2xVUG4MzTVKqMqa8D3Hp3aA+VvD8a/QRkThRnlH4MXKiFUrnBaCF0Ft+Sv3vVWENvWLl0+eIfE8K5WexuJG2tZ9XLvgOgSY4XThfUJjjXop0r7ZHr4k9o98qpSWONOgAAAABJRU5ErkJggg==" width="20" alt="BC Icon">
+    <h3 style='margin: 0;'>BC Motor Fuel Tax Determination Tool</h3>
+</div>
+""", unsafe_allow_html=True)
 
-# Input form layout
-st.markdown("### 🔍 Enter Transaction Details")
+st.write("---")
 
-col1, col2 = st.columns(2)
+# Inputs
+fuel_type = st.selectbox("Fuel Type", ["Gasoline", "Diesel", "Propane", "Natural Gas", "Aviation Fuel", "Other"])
+origin = st.radio("Fuel Origin", ["Manufactured in BC", "Imported into BC"])
+is_collector = st.checkbox("Are you a Collector?")
+is_first_sale = st.checkbox("Is this the first sale after manufacture/import?")
+purchaser_type = st.selectbox("Purchaser Type", ["Collector", "Registered Reseller", "End User", "Export"])
+use_case = st.selectbox("Use Case", ["Engine Use", "Non-Engine Use", "Export", "Resale"])
+zone = st.selectbox("BC Destination Zone", ["Zone 1", "Zone 2", "Zone 3", "Outside BC"])
+certificate = st.text_input("Certificate (e.g. resale, farm_use, diplomat)")
 
-with col1:
-    fuel_type = st.selectbox("Fuel Type", ["Propane", "Gasoline", "Diesel", "Aviation Fuel", "Marine Fuel"])
-    origin = st.selectbox("Origin", ["Manufactured in BC", "Imported into BC"])
-    is_collector = st.radio("Are you a Collector?", ["Yes", "No"]) == "Yes"
+# Decision logic placeholder
+def check_bc_fuel_tax_applicability(fuel_type, origin, is_collector, is_first_sale, purchaser_type, use_case, zone, certificate):
+    reasons = []
+    tax_applicable = True
 
-with col2:
-    is_first_sale = st.radio("Is this the first sale after manufacture or import?", ["Yes", "No"]) == "Yes"
-    purchaser_type = st.selectbox("Purchaser Type", ["Collector", "Registered Reseller", "End User", "Export"])
-    use_case = st.selectbox("Use of Fuel", ["Engine Use", "Non-Engine Use", "Export", "Resale"])
+    if use_case.lower() == "engine use":
+        reasons.append("Fuel is used in an internal combustion engine.")
 
-certificate = st.selectbox("Certificate Provided (if applicable)", [None, "Resale", "Farm Use", "Diplomat", "Common Carrier"])
-destination = st.selectbox("Fuel Destination", [
-    "British Columbia", 
-    "Alberta", 
-    "Saskatchewan", 
-    "Manitoba", 
-    "USA", 
-    "International"
-])
+        if fuel_type.lower() == "propane" and certificate in ["farm_use", "residential_heating"]:
+            tax_applicable = False
+            reasons.append("Exempt due to use of propane for farm or residential heating with proper certificate.")
+        elif purchaser_type.lower() == "export":
+            tax_applicable = False
+            reasons.append("Exempt because the purchaser is exporting the fuel.")
+    elif use_case.lower() == "non-engine use":
+        tax_applicable = False
+        reasons.append("Fuel not used in an internal combustion engine.")
+    elif use_case.lower() == "export":
+        tax_applicable = False
+        reasons.append("Exported fuel is exempt from MFT.")
+    elif use_case.lower() == "resale" and certificate == "resale":
+        tax_applicable = False
+        reasons.append("Fuel sold for resale with proper resale certificate.")
 
-# Run the rule engine
-if st.button("Run MFT Determination"):
-    tax_applicable, references = check_bc_fuel_tax_applicability(
-        fuel_type=fuel_type.lower(),
-        origin="manufactured" if origin == "Manufactured in BC" else "imported",
-        is_collector=is_collector,
-        is_first_sale=is_first_sale,
-        purchaser_type=purchaser_type.lower().replace(" ", "_"),
-        use_case=use_case.lower().replace(" ", "_"),
-        certificate=certificate.lower().replace(" ", "_") if certificate else None,
-        destination=destination.lower().replace(" ", "_")
+    if zone == "Outside BC":
+        tax_applicable = False
+        reasons.append("Destination is outside of BC, MFT does not apply.")
+
+    return tax_applicable, reasons
+
+# Submit button
+if st.button("Check Tax Applicability"):
+    tax, explanation = check_bc_fuel_tax_applicability(
+        fuel_type, origin, is_collector, is_first_sale, purchaser_type, use_case, zone, certificate
     )
 
-    # Output results
-    st.markdown("### 📋 Determination")
-    if tax_applicable:
-        st.error("Motor Fuel Tax **applies** to this transaction.")
+    if tax:
+        st.error("Motor Fuel Tax is applicable.")
     else:
-        st.success("Motor Fuel Tax **does NOT apply** to this transaction.")
+        st.success("Motor Fuel Tax is NOT applicable.")
 
-    # Show references from Act, Regs, Bulletins
-    st.markdown("### 📚 References")
-    for ref in references:
-        st.markdown(f"- {ref}")
+    st.markdown("#### Reasoning:")
+    for reason in explanation:
+        st.markdown(f"- {reason}")
 
-st.markdown("---")
-st.caption("Built with ❤️ by the Tax Team")
