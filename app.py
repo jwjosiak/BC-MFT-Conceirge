@@ -1,28 +1,27 @@
 # app.py
 
 import streamlit as st
-from bcmftrul import check_bc_fuel_tax_applicability  # <-- corrected import
+from bcmftrul import check_bc_fuel_tax_applicability  # Match filename exactly
 
 st.set_page_config(page_title="BC Motor Fuel Tax Tool", layout="centered")
 st.title("🚛 BC Motor Fuel Tax Determination Tool")
 
-with st.expander("ℹ️ Click here for help filling out the form"):
+with st.expander("ℹ️ Help"):
     st.markdown("""
-    This tool assumes you will **not** charge BC Motor Fuel Tax.
+    This tool assumes **you are not charging BC Motor Fuel Tax**.
 
-    It will tell you what documentation or conditions are required to justify that position.
+    It will check whether your exemption position is supported and list any missing documentation.
 
-    ---
     ### ✅ How to use:
-    - Fill in all known fields below
-    - Choose "Not sure" for unknowns (the tool will flag what you're missing)
+    - Fill in all known fields using the dropdowns
+    - Choose “Not sure” if you lack specific information
+    - Click outside the fields to refresh the result
     """)
 
-st.subheader("📋 Describe the Transaction")
+st.subheader("📋 Enter Transaction Details")
 
-# --- Form inputs ---
+# ---- INPUT FIELDS ----
 fuel_type = st.selectbox("Fuel Type", ["Not sure", "Propane", "Gasoline", "Diesel", "Aviation Fuel", "Jet Fuel"])
-
 origin = st.selectbox("Fuel Origin", ["Not sure", "Imported", "Manufactured in BC"])
 
 is_collector = st.radio("Are you a registered Collector?", ["Not sure", "Yes", "No"])
@@ -44,37 +43,33 @@ certificate = st.selectbox("Certificate Provided", [
 ])
 
 bc_zone = st.selectbox("BC Zone (if applicable)", ["Not sure", "Zone I", "Zone II", "Zone III"])
-
 destination = st.selectbox("Final Destination of Fuel", ["Not sure", "BC", "Outside BC"])
+title_transfer_location = st.selectbox("Where Did Title Transfer Occur?", ["Not sure", "BC", "Outside BC"])
 
-title_transfer_location = st.selectbox("Where Did Title Transfer?", ["Not sure", "BC", "Outside BC"])
+# ---- PREP INPUTS FOR RULE ENGINE ----
+inputs = {
+    "fuel_type": fuel_type.lower() if fuel_type != "Not sure" else None,
+    "origin": origin.lower() if origin != "Not sure" else None,
+    "is_collector": is_collector,
+    "is_first_sale": is_first_sale,
+    "purchaser_type": purchaser_type.lower().replace(" ", "_") if purchaser_type != "Not sure" else None,
+    "use_case": {
+        "Engine Use": "engine_use",
+        "Resale": "resale",
+        "Heating (Residential)": "heating",
+        "Farm Use": "farm_use",
+        "Export": "export",
+        "Non-Engine Use": "non_engine_use"
+    }.get(use_case, None),
+    "certificate": certificate.lower().replace(" ", "_") if certificate != "None / Not sure" else None,
+    "bc_zone": bc_zone if bc_zone != "Not sure" else None,
+    "destination": destination.upper() if destination != "Not sure" else None,
+    "title_transfer_location": title_transfer_location.upper() if title_transfer_location != "Not sure" else None
+}
 
-# --- Show result only if fuel type is specified ---
-if fuel_type != "Not sure":
+# ---- DECISION LOGIC ----
+if inputs["fuel_type"]:  # only check if fuel_type is specified
     st.subheader("⚖️ MFT Exemption Guidance")
-
-    # Normalize inputs for backend rule engine
-    inputs = {
-        "fuel_type": fuel_type.lower() if fuel_type != "Not sure" else None,
-        "origin": origin.lower() if origin != "Not sure" else None,
-        "is_collector": is_collector,
-        "is_first_sale": is_first_sale,
-        "purchaser_type": purchaser_type.lower().replace(" ", "_") if purchaser_type != "Not sure" else None,
-        "use_case": {
-            "Engine Use": "engine_use",
-            "Resale": "resale",
-            "Heating (Residential)": "heating",
-            "Farm Use": "farm_use",
-            "Export": "export",
-            "Non-Engine Use": "non_engine_use"
-        }.get(use_case, None),
-        "certificate": certificate.lower().replace(" ", "_") if certificate != "None / Not sure" else None,
-        "bc_zone": bc_zone if bc_zone != "Not sure" else None,
-        "destination": destination.upper() if destination != "Not sure" else None,
-        "title_transfer_location": title_transfer_location.upper() if title_transfer_location != "Not sure" else None
-    }
-
-    # Check tax logic
     is_supported, message = check_bc_fuel_tax_applicability(**inputs)
 
     if is_supported:
@@ -84,6 +79,5 @@ if fuel_type != "Not sure":
         st.error("⚠️ Charging no MFT is not currently supported.")
         st.markdown(f"**Action Required:** {message}")
 
-    # Debug/audit log
-    with st.expander("🧪 Show structured input (for developers or audit purposes)"):
-        st.write(inputs)
+    with st.expander("🧪 View input data (for audit/debugging)"):
+        st.json(inputs)
