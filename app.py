@@ -4,7 +4,7 @@ import streamlit as st
 from bcmftrule import check_bc_fuel_tax_applicability  # Match filename exactly
 
 st.set_page_config(page_title="BC Motor Fuel Tax Tool", layout="centered")
-st.title("🚛 BC Motor Fuel Tax Determination Tool")
+st.title("🌲 BC Motor Fuel Tax Determination Tool")
 
 with st.expander("ℹ️ Help"):
     st.markdown("""
