@@ -1,14 +1,4 @@
 import streamlit as st
-
-# This adds the BC logo icon (30px wide)
-st.markdown("""
-<div style="display: flex; align-items: center;">
-    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACsAAAAyCAYAAAC9nV3UAAAACXBIWXMAAA7EAAAOxAGVKw4bAAABMElEQVRoge2XsU3DMBCFZ4qYi9rIltzCIszENnBE2YjWfEJDqUp0BdFymFPbCieiwjPbRZTbnkzRkU8mh4/3ON3eANvpKJfwWcVtHbFawU8ULaKjvBtRO+ls59jzebgFsGuULkL5PKzFkfC+xFfKn8CbBcmuUr/RaEvkyZIZQbiD8N8K2kYxcRFa28twtdVndKMYOYIqMtzKzBQFLKtFJ7X1SpFT2xVUG4MzTVKqMqa8D3Hp3aA+VvD8a/QRkThRnlH4MXKiFUrnBaCF0Ft+Sv3vVWENvWLl0+eIfE8K5WexuJG2tZ9XLvgOgSY4XThfUJjjXop0r7ZHr4k9o98qpSWONOgAAAABJRU5ErkJggg==" alt="BC Icon" width="30" style="margin-right: 10px;"/>
-    <h1 style="margin: 0;">BC Motor Fuel Tax Tool</h1>
-</div>
-""", unsafe_allow_html=True)
-
-import streamlit as st
 from bcmftrule import check_bc_fuel_tax_applicability
 
 # Streamlit page setup
