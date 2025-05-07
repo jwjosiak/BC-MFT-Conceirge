@@ -1,7 +1,7 @@
 # app.py
 
 import streamlit as st
-from bcmftrule import check_bc_fuel_tax_applicability
+from bcmftrul import check_bc_fuel_tax_applicability  # <-- corrected import
 
 st.set_page_config(page_title="BC Motor Fuel Tax Tool", layout="centered")
 st.title("🚛 BC Motor Fuel Tax Determination Tool")
@@ -10,8 +10,9 @@ with st.expander("ℹ️ Click here for help filling out the form"):
     st.markdown("""
     This tool assumes you will **not** charge BC Motor Fuel Tax.
 
-    It tells you what documentation or conditions are required to justify that decision.
+    It will tell you what documentation or conditions are required to justify that position.
 
+    ---
     ### ✅ How to use:
     - Fill in all known fields below
     - Choose "Not sure" for unknowns (the tool will flag what you're missing)
@@ -48,11 +49,11 @@ destination = st.selectbox("Final Destination of Fuel", ["Not sure", "BC", "Outs
 
 title_transfer_location = st.selectbox("Where Did Title Transfer?", ["Not sure", "BC", "Outside BC"])
 
-# --- Check logic only if fuel_type is selected ---
+# --- Show result only if fuel type is specified ---
 if fuel_type != "Not sure":
     st.subheader("⚖️ MFT Exemption Guidance")
 
-    # Normalize values for function call
+    # Normalize inputs for backend rule engine
     inputs = {
         "fuel_type": fuel_type.lower() if fuel_type != "Not sure" else None,
         "origin": origin.lower() if origin != "Not sure" else None,
@@ -73,9 +74,9 @@ if fuel_type != "Not sure":
         "title_transfer_location": title_transfer_location.upper() if title_transfer_location != "Not sure" else None
     }
 
+    # Check tax logic
     is_supported, message = check_bc_fuel_tax_applicability(**inputs)
 
-    # Decision Output
     if is_supported:
         st.success("✅ You may proceed without charging MFT.")
         st.markdown(f"**Reason:** {message}")
@@ -83,6 +84,6 @@ if fuel_type != "Not sure":
         st.error("⚠️ Charging no MFT is not currently supported.")
         st.markdown(f"**Action Required:** {message}")
 
-    # Optional: Debug display of input for audit
+    # Debug/audit log
     with st.expander("🧪 Show structured input (for developers or audit purposes)"):
         st.write(inputs)
