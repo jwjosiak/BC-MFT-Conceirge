@@ -64,4 +64,4 @@ if st.button("Run MFT Determination"):
         st.markdown(f"- {ref}")
 
 st.markdown("---")
-st.caption("Built with ❤️ by the Tax Team")
+st.caption("Built with 💪 by the Tax Team")
