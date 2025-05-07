@@ -3,7 +3,7 @@
 from bcmftrul import check_bc_fuel_tax_applicability
 
 def run_hybrid_interface():
-    print("🚛 BC Motor Fuel Tax CLI Tool")
+    print("🌲 BC Motor Fuel Tax CLI Tool")
     print("Assumes you will NOT charge MFT — this tool tells you what’s required to support that.")
     print("Type 'exit' at any time to quit.\n")
 
