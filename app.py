@@ -1,7 +1,7 @@
 # app.py
 
 import streamlit as st
-from bcmftrul import check_bc_fuel_tax_applicability  # Match filename exactly
+from bcmftrule import check_bc_fuel_tax_applicability  # Match filename exactly
 
 st.set_page_config(page_title="BC Motor Fuel Tax Tool", layout="centered")
 st.title("🚛 BC Motor Fuel Tax Determination Tool")
