@@ -4,12 +4,12 @@ from bcmftrule import check_bc_fuel_tax_applicability
 # Set page config
 st.set_page_config(
     page_title="BC Motor Fuel Tax Tool",
-    page_icon="🚛",
+    page_icon="🌲",
     layout="centered"
 )
 
 # Title and intro
-st.title("🚛 BC Motor Fuel Tax Determination Tool")
+st.title("🌲 BC Motor Fuel Tax Determination Tool")
 st.subheader("Quickly determine if Motor Fuel Tax (MFT) applies to your transaction.")
 
 st.markdown("---")
